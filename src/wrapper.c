@@ -7,9 +7,28 @@
 
 char libwinpath_disable_wrapper = 0;
 
-int libwinpath_open(const char *pathname, int flags, mode_t mode) {
+
+#ifdef LIBWINPATH_INJECT
+#define __USE_GNU
+#include <dlfcn.h>
+
+typedef int (*orig_open_f_type)(const char *pathname, int flags);
+static int original_open(const char *pathname, int flags) {
+  orig_open_f_type orig_open;
+  orig_open = (orig_open_f_type)dlsym(RTLD_NEXT, "open");
+  return orig_open(pathname,flags);
+}
+
+int open(const char* pathname, int flags, ...) {
+  return libwinpath_open(pathname, flags);
+}
+#else
+#define original_open(...) open(__VA_ARGS__)
+#endif
+
+int libwinpath_open(const char *pathname, int flags, ...) {
   if (libwinpath_disable_wrapper)
-    return open(pathname, flags, mode);
+    return original_open(pathname, flags);
 
   char* dst;
 
@@ -24,7 +43,7 @@ int libwinpath_open(const char *pathname, int flags, mode_t mode) {
     return -1;
   }
 
-  return open(pathname, flags, mode);
+  return original_open(dst, flags);
 }
 
 FILE* libwinpath_fopen(const char* filename, const char* mode) {

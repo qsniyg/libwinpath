@@ -25,6 +25,7 @@ int libwinpath_getpath(char** dst, const char* path, int disposition);
 
 /* fopen wrapper */
 FILE* libwinpath_fopen(const char* filename, const char* mode);
+int libwinpath_open(const char *pathname, int flags, ...);
 
 #ifdef _LIBWINPATH_ENABLE_WRAPPER
 #define fopen(...) libwinpath_fopen(__VA_ARGS__)
