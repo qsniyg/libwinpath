@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <stdio.h>
 static int lookup_unix_name_utf8(char** dst, int pos, char* path, UINT disposition, BOOL check_case) {
   int path_len = strlen(path);
   int dst_len = path_len + 258;
@@ -13,13 +12,11 @@ static int lookup_unix_name_utf8(char** dst, int pos, char* path, UINT dispositi
   WCHAR wchar_path[255] = {0};
 
   int new_path_len = ntdll_umbstowcs(0, path, path_len, wchar_path, 0);
-  //printf("%i\n", new_path_len);
   ntdll_umbstowcs(0, path, path_len, wchar_path, new_path_len);
-  //printf("path: %S (%i)\n", wchar_path, new_path_len);
   return lookup_unix_name(wchar_path, new_path_len, dst, dst_len, pos, disposition, check_case);
 }
 
-int libwinpath_getpath(char** dst, char* path, int disposition) {
+int libwinpath_getpath(char** dst, const char* path, int disposition) {
   int win_disposition = 0;
   switch (disposition) {
   case LIBWINPATH_FILE_OPEN:
@@ -33,7 +30,7 @@ int libwinpath_getpath(char** dst, char* path, int disposition) {
     break;
   }
 
-  int ret = lookup_unix_name_utf8(dst, 0, path, win_disposition, 0);
+  int ret = lookup_unix_name_utf8(dst, 0, (char*)path, win_disposition, 0);
   switch (ret) {
   case STATUS_SUCCESS:
     return 0;
