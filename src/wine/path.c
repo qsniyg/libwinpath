@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #ifdef LIBWINPATH_INJECT
+int original___xstat(int ver, const char *path, struct stat *buf);
 int original_stat(const char* path, struct stat* buf) {
   return original___xstat(_STAT_VER_LINUX, path, buf);
 }
