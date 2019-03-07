@@ -17,6 +17,8 @@ static int lookup_unix_name_utf8(char** dst, int pos, char* path, UINT dispositi
 }
 
 int libwinpath_getpath(char** dst, const char* path, int disposition) {
+  //puts(path);fflush(stdout);
+
   int win_disposition = 0;
   switch (disposition) {
   case LIBWINPATH_FILE_OPEN:
@@ -49,4 +51,13 @@ int libwinpath_getpath(char** dst, const char* path, int disposition) {
   default:
     return LIBWINPATH_UNKNOWN_ERROR;
   }
+}
+
+char* libwinpath_getpath_errno(const char* path, int disposition) {
+  char* dst;
+
+  if ((errno = -libwinpath_getpath(&dst, path, disposition)))
+    return NULL;
+
+  return dst;
 }

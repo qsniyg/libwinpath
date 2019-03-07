@@ -16,6 +16,7 @@ extern "C" {
 #define LIBWINPATH_UNKNOWN_ERROR -999
 
 #include <stdio.h>
+#include <sys/stat.h>
 
 /* Set this to 1 to disable the wrapper during runtime */
 extern char libwinpath_disable_wrapper;
@@ -23,9 +24,14 @@ extern char libwinpath_disable_wrapper;
 /* Returns a case-sensitive path to `dst` from the case-insensitive path passed to `path` */
 int libwinpath_getpath(char** dst, const char* path, int disposition);
 
-/* fopen wrapper */
+/* Convenience function that sets errno, and will return NULL if there's an error */
+char* libwinpath_getpath_errno(const char* path, int disposition);
+
+/* Wrappers */
 FILE* libwinpath_fopen(const char* filename, const char* mode);
 int libwinpath_open(const char *pathname, int flags, ...);
+int libwinpath_stat(const char *path, struct stat *buf);
+int libwinpath_lstat(const char *path, struct stat *buf);
 
 #ifdef _LIBWINPATH_ENABLE_WRAPPER
 #define fopen(...) libwinpath_fopen(__VA_ARGS__)

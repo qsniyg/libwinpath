@@ -6,6 +6,14 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef LIBWINPATH_INJECT
+int original_stat(const char* path, struct stat* buf) {
+  return original___xstat(_STAT_VER_LINUX, path, buf);
+}
+#else
+#define original_stat(...) stat(__VA_ARGS__)
+#endif
+
 // TODO (This is not WINE's implementation)
 BOOLEAN RtlIsNameLegalDOS8Dot3( const UNICODE_STRING *unicode,
                                 OEM_STRING *oem, BOOLEAN *spaces ) {
@@ -89,7 +97,7 @@ static BOOLEAN get_dir_case_sensitivity_stat( const char *dir )
     if (!cifile) return TRUE;
     strcpy( cifile, dir );
     strcat( cifile, "/.ciopfs" );
-    if (stat( cifile, &st ) == 0)
+    if (original_stat( cifile, &st ) == 0)
     {
         free(cifile);
         return FALSE;
@@ -142,7 +150,7 @@ static NTSTATUS find_file_in_dir( char *unix_name, int pos, const WCHAR *name, i
     if (ret >= 0 && !used_default)
     {
         unix_name[pos + ret] = 0;
-        if (!stat( unix_name, &st ))
+        if (!original_stat( unix_name, &st ))
         {
             //if (is_win_dir) *is_win_dir = is_same_file( &windir, &st );
             return STATUS_SUCCESS;
@@ -298,7 +306,7 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
         for (p = unix_name + pos ; *p; p++) if (*p == '\\') *p = '/';
         if (!redirect || (!strstr( unix_name, "/windows/") && strncmp( unix_name, "windows/", 8 )))
         {
-            if (!stat( unix_name, &st ))
+            if (!original_stat( unix_name, &st ))
             {
                 /* creation fails with STATUS_ACCESS_DENIED for the root of the drive */
                 if (disposition == FILE_CREATE)
@@ -339,10 +347,10 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
 
         status = find_file_in_dir( unix_name, pos, name, end - name,
                                    check_case, redirect ? &is_win_dir : NULL );
-
         /* if this is the last element, not finding it is not necessarily fatal */
         if (!name_len)
         {
+          //printf("%i\n", name_len);
             if (status == STATUS_OBJECT_PATH_NOT_FOUND)
             {
                 status = STATUS_OBJECT_NAME_NOT_FOUND;
@@ -381,117 +389,3 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
 
     return status;
 }
-
-#if 0
-NTSTATUS wine_nt_to_unix_file_name( const UNICODE_STRING *nameW, ANSI_STRING *unix_name_ret,
-                                    UINT disposition, BOOLEAN check_case )
-{
-    static const WCHAR unixW[] = {'u','n','i','x'};
-    static const WCHAR invalid_charsW[] = { INVALID_NT_CHARS, 0 };
-
-    NTSTATUS status = STATUS_SUCCESS;
-    //const char *config_dir = wine_get_config_dir();
-    const WCHAR *name, *p;
-    struct stat st;
-    char *unix_name;
-    int pos, ret, name_len, unix_len, prefix_len, used_default;
-    WCHAR prefix[MAX_DIR_ENTRY_LEN];
-    BOOLEAN is_unix = FALSE;
-
-    name     = nameW->Buffer;
-    name_len = nameW->Length / sizeof(WCHAR);
-
-    if (!name_len || !IS_SEPARATOR(name[0])) return STATUS_OBJECT_PATH_SYNTAX_BAD;
-
-    if (!(pos = get_dos_prefix_len( nameW )))
-        return STATUS_BAD_DEVICE_TYPE;  /* no DOS prefix, assume NT native name */
-
-    name += pos;
-    name_len -= pos;
-
-    if (!name_len) return STATUS_OBJECT_NAME_INVALID;
-
-    /* check for sub-directory */
-    for (pos = 0; pos < name_len; pos++)
-    {
-        if (IS_SEPARATOR(name[pos])) break;
-        if (name[pos] < 32 || strchrW( invalid_charsW, name[pos] ))
-            return STATUS_OBJECT_NAME_INVALID;
-    }
-    if (pos > MAX_DIR_ENTRY_LEN)
-        return STATUS_OBJECT_NAME_INVALID;
-
-    if (pos == name_len)  /* no subdir, plain DOS device */
-        return get_dos_device( name, name_len, unix_name_ret );
-
-    for (prefix_len = 0; prefix_len < pos; prefix_len++)
-        prefix[prefix_len] = tolowerW(name[prefix_len]);
-
-    name += prefix_len;
-    name_len -= prefix_len;
-
-    /* check for invalid characters (all chars except 0 are valid for unix) */
-    is_unix = (prefix_len == 4 && !memcmp( prefix, unixW, sizeof(unixW) ));
-    if (is_unix)
-    {
-        for (p = name; p < name + name_len; p++)
-            if (!*p) return STATUS_OBJECT_NAME_INVALID;
-        check_case = TRUE;
-    }
-    else
-    {
-        for (p = name; p < name + name_len; p++)
-            if (*p < 32 || strchrW( invalid_charsW, *p )) return STATUS_OBJECT_NAME_INVALID;
-    }
-
-    unix_len = ntdll_wcstoumbs( 0, prefix, prefix_len, NULL, 0, NULL, NULL );
-    unix_len += ntdll_wcstoumbs( 0, name, name_len, NULL, 0, NULL, NULL );
-    unix_len += MAX_DIR_ENTRY_LEN + 3;
-    unix_len += strlen(config_dir) + sizeof("/dosdevices/");
-    if (!(unix_name = malloc(unix_len)))
-        return STATUS_NO_MEMORY;
-    strcpy( unix_name, config_dir );
-    strcat( unix_name, "/dosdevices/" );
-    pos = strlen(unix_name);
-
-    ret = ntdll_wcstoumbs( 0, prefix, prefix_len, unix_name + pos, unix_len - pos - 1,
-                           NULL, &used_default );
-    if (!ret || used_default)
-    {
-        free(unix_name);
-        return STATUS_OBJECT_NAME_INVALID;
-    }
-    pos += ret;
-
-    /* check if prefix exists (except for DOS drives to avoid extra stat calls) */
-
-    if (prefix_len != 2 || prefix[1] != ':')
-    {
-        unix_name[pos] = 0;
-        if (lstat( unix_name, &st ) == -1 && errno == ENOENT)
-        {
-            if (!is_unix)
-            {
-                free(unix_name);
-                return STATUS_BAD_DEVICE_TYPE;
-            }
-            pos = 0;  /* fall back to unix root */
-        }
-    }
-
-    status = lookup_unix_name( name, name_len, &unix_name, unix_len, pos, disposition, check_case );
-    if (status == STATUS_SUCCESS || status == STATUS_NO_SUCH_FILE)
-    {
-        //TRACE( "%s -> %s\n", debugstr_us(nameW), debugstr_a(unix_name) );
-        unix_name_ret->Buffer = unix_name;
-        unix_name_ret->Length = strlen(unix_name);
-        unix_name_ret->MaximumLength = unix_len;
-    }
-    else
-    {
-        //TRACE( "%s not found in %s\n", debugstr_w(name), unix_name );
-        free(unix_name);
-    }
-    return status;
-}
-#endif

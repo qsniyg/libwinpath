@@ -5,6 +5,8 @@ set(SOURCES
   path.c
   wrapper.c)
 
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+
 add_library(winpath ${SOURCES})
 
 add_library(winpath_inject SHARED ${SOURCES})
