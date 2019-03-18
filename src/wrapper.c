@@ -86,7 +86,7 @@ INJECT1(renameatu, fd1, src, fd2, dst, flags);
   ret libwinpath_##x(__VA_ARGS__) {\
     char* NEWPATH;\
     if (!(NEWPATH = libwinpath_getpath_errno(patharg, LIBWINPATH_FILE_ANY))){ \
-      return bad;}puts(NEWPATH);
+      return bad;}
 #define WRAP1(x, ...) return original_##x(__VA_ARGS__);}
 
 #define WRAPSD(x, ret, bad, srcarg, dstarg, ...)       \
