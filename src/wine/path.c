@@ -140,9 +140,9 @@ static NTSTATUS find_file_in_dir( char *unix_name, int pos, const WCHAR *name, i
     /* try a shortcut for this directory */
 
     // added this to support relative paths
-    if (pos == 0 && unix_name[pos] != '/') {
+    /*if (pos == 0 && unix_name[pos] != '/') {
       unix_name[pos++] = '.';
-    }
+      }*/
     unix_name[pos++] = '/';
     ret = ntdll_wcstoumbs( 0, name, length, unix_name + pos, MAX_DIR_ENTRY_LEN,
                            NULL, &used_default );
@@ -323,6 +323,8 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
         return STATUS_OBJECT_NAME_NOT_FOUND;
 
     /* now do it component by component */
+    unix_name[pos++] = '.';
+    //unix_name[pos++] = '/';
 
     while (name_len)
     {
@@ -351,7 +353,7 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
         /* if this is the last element, not finding it is not necessarily fatal */
         if (!name_len)
         {
-          //printf("%i\n", name_len);
+            //printf("%i\n", name_len);
             if (status == STATUS_OBJECT_PATH_NOT_FOUND)
             {
                 status = STATUS_OBJECT_NAME_NOT_FOUND;
@@ -361,6 +363,8 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
                                            MAX_DIR_ENTRY_LEN, NULL, &used_default );
                     if (ret > 0 && !used_default)
                     {
+                        /*unix_name[pos] = '.';
+                          unix_name[pos + 1] = '/';*/
                         unix_name[pos] = '/';
                         unix_name[pos + 1 + ret] = 0;
                         status = STATUS_NO_SUCH_FILE;
@@ -368,9 +372,10 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
                     }
                 }
             }
-            else if (status == STATUS_SUCCESS && disposition == FILE_CREATE)
+            else if (status == STATUS_SUCCESS)
             {
-                status = STATUS_OBJECT_NAME_COLLISION;
+                if (disposition == FILE_CREATE)
+                    status = STATUS_OBJECT_NAME_COLLISION;
             }
         }
 

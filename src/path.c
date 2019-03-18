@@ -37,6 +37,11 @@ int libwinpath_getpath(char** dst, const char* path, int disposition) {
   case STATUS_SUCCESS:
     return 0;
   case STATUS_NO_SUCH_FILE:
+    if (disposition == LIBWINPATH_FILE_CREATE ||
+        disposition == LIBWINPATH_FILE_ANY)
+      return 0;
+    else
+      return -ENOENT;
   case STATUS_OBJECT_NAME_NOT_FOUND:
   case STATUS_OBJECT_PATH_NOT_FOUND:
     return -ENOENT;
@@ -56,8 +61,9 @@ int libwinpath_getpath(char** dst, const char* path, int disposition) {
 char* libwinpath_getpath_errno(const char* path, int disposition) {
   char* dst;
 
-  if ((errno = -libwinpath_getpath(&dst, path, disposition)))
+  if ((errno = -libwinpath_getpath(&dst, path, disposition))) {
     return NULL;
+  }
 
   return dst;
 }
