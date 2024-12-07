@@ -32,6 +32,8 @@ char libwinpath_disable_wrapper = 0;
 
 INJECT_ORIG(open, int, const char *pathname, int flags);INJECT_ORIG1(open, pathname, flags);
 INJECT(open, int, const char *pathname, int flags, ...);INJECT1(open, pathname, flags);
+INJECT_ORIG(openat, int, int dirfd, const char *pathname, int flags);INJECT_ORIG1(openat, dirfd, pathname, flags);
+INJECT(openat, int, int dirfd, const char *pathname, int flags, ...);INJECT1(openat, dirfd, pathname, flags);
 
 INJECT_ORIG(__xstat, int, int ver, const char *path, struct stat *buf);INJECT_ORIG1(__xstat, ver, path, buf);
 INJECT(__xstat, int, int ver, const char *path, struct stat *buf);INJECT1(__xstat, ver, path, buf);
@@ -123,12 +125,7 @@ WRAPSD(renameatu, int, -1, src, dst, int fd1, char const *src, int fd2, char con
 WRAPSD1(renameatu, fd1, NEWSRC, fd2, NEWDST, flags);
 #endif
 
-int libwinpath_open(const char *pathname, int flags, ...) {
-  if (libwinpath_disable_wrapper)
-    return original_open(pathname, flags);
-
-  char* dst;
-
+static int open_get_disposition(int flags) {
   int disposition = LIBWINPATH_FILE_OPEN;
   if (flags & O_CREAT)
     //disposition = LIBWINPATH_FILE_CREATE;
@@ -137,10 +134,28 @@ int libwinpath_open(const char *pathname, int flags, ...) {
     disposition = LIBWINPATH_FILE_ANY;
   }
 
-  if (!(dst = libwinpath_getpath_errno(pathname, disposition)))
+  return disposition;
+}
+
+int libwinpath_open(const char *pathname, int flags, ...) {
+  if (libwinpath_disable_wrapper)
+    return original_open(pathname, flags);
+
+  char* dst;
+
+  if (!(dst = libwinpath_getpath_errno(pathname, open_get_disposition(flags))))
     return -1;
 
   return original_open(dst, flags);
+}
+
+int libwinpath_openat(int dirfd, const char* pathname, int flags, ...) {
+  char* dst;
+
+  if (!(dst = libwinpath_getpath_errno(pathname, open_get_disposition(flags))))
+    return -1;
+
+  return original_openat(dirfd, dst, flags);
 }
 
 FILE* libwinpath_fopen(const char* filename, const char* mode) {

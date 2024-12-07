@@ -6,6 +6,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifndef __x86_64__
+# define _STAT_VER_LINUX    3
+#else
+# define _STAT_VER_LINUX    1
+#endif
+
 #ifdef LIBWINPATH_INJECT
 int original___xstat(int ver, const char *path, struct stat *buf);
 int original_stat(const char* path, struct stat* buf) {
@@ -323,7 +329,8 @@ NTSTATUS lookup_unix_name( const WCHAR *name, int name_len, char **buffer, int u
         return STATUS_OBJECT_NAME_NOT_FOUND;
 
     /* now do it component by component */
-    unix_name[pos++] = '.';
+    if (unix_name[pos] != '/')
+        unix_name[pos++] = '.';
     //unix_name[pos++] = '/';
 
     while (name_len)

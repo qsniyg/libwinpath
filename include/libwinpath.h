@@ -31,6 +31,7 @@ char* libwinpath_getpath_errno(const char* path, int disposition);
 /* Wrappers */
 FILE* libwinpath_fopen(const char* filename, const char* mode);
 int libwinpath_open(const char *pathname, int flags, ...);
+int libwinpath_openat(int dirfd, const char *pathname, int flags, ...);
 int libwinpath___xstat(int ver, const char *path, struct stat *buf);
 int libwinpath___lxstat(int ver, const char *path, struct stat *buf);
 
